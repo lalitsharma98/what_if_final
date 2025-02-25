@@ -64,7 +64,7 @@ def analyze_scenarios(df, model):
 
 def main():
     st.title("WFM Regression Analysis Dashboard")
-    file_path = r"Data\data_to_analyze.xlsx"
+    file_path = "Data/data_to_analyze.xlsx"
     df = load_and_prepare_data(file_path)
     model, mae, r2_train, r2_test, cv_mean, cv_std, coefficients, equation = train_regression_model(df)
     st.write(f"Model Performance: MAE = {mae:.2f}, R2 Train Score = {r2_train:.4f}, R2 Test Score = {r2_test:.4f}")
