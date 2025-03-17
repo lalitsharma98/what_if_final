@@ -1,10 +1,10 @@
-from modules.utils import st
-from modules.utils import pd
-from modules.utils import np
-from modules.utils import train_test_split
-from modules.utils import LinearRegression
-from modules.utils import mean_absolute_error, r2_score
-from modules.utils import joblib
+import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, r2_score
+import joblib
 
 def load_and_prepare_data(file_path):
     df = pd.read_excel(file_path, sheet_name="Sheet1")
@@ -31,7 +31,7 @@ def train_regression_model(df):
 
 def analyze_scenarios(df, model, q2, abn, occ):
     test_data = pd.DataFrame({
-        "Q2": [q2/100],
+        "Q2": q2,
         "ABN %": [abn/100],
         "Occ Assumption": [occ/100],
         "Staffing": [df["Staffing"].median()],
@@ -47,7 +47,7 @@ def fte_impact_of_demand_increase(df, model, q2, abn, occ):
     for change in demand_changes:
         demand_scenario = df["Demand"].median() * (1 + change / 100)
         fte_pred = model.predict(pd.DataFrame({
-            "Q2": [q2/100], "ABN %": [abn/100], "Occ Assumption": [occ/100],
+            "Q2": q2, "ABN %": [abn/100], "Occ Assumption": [occ/100],
             "Staffing": [df["Staffing"].median()], "Demand": [demand_scenario], "Occupancy Rate": [df["Occupancy Rate"].median()]
         }))[0]
         predictions.append((change, int(fte_pred)))
@@ -59,7 +59,7 @@ def impact_of_occ_assumption_change(df, model, q2, abn):
     for change in occ_changes:
         occ_scenario = df["Occ Assumption"].median() * (1 + change / 100)
         fte_pred = model.predict(pd.DataFrame({
-            "Q2": [q2/100], "ABN %": [abn/100], "Occ Assumption": [occ_scenario/100],
+            "Q2": q2, "ABN %": [abn/100], "Occ Assumption": occ_scenario,
             "Staffing": [df["Staffing"].median()], "Demand": [df["Demand"].median()], "Occupancy Rate": [df["Occupancy Rate"].median()]
         }))[0]
         predictions.append((change, int(fte_pred)))
@@ -107,5 +107,5 @@ def scn2():
         for change, fte_pred in occ_impact:
             st.write(f"OCC Assumption Change {change}%: Predicted FTE = {fte_pred}")
 
-# if __name__ == '__main__':
-#     scn2()
+if __name__ == '__main__':
+    scn2()
