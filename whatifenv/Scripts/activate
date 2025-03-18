@@ -37,7 +37,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\sharma.15282\OneDrive - Teleperformance\What-Ifs\project\Final_ToBeDeployed\whatifenv"
+VIRTUAL_ENV="C:\Users\sharma.15282\OneDrive - Teleperformance\What-Ifs\project\Final_ToBeDeployed\What-if_test\whatifenv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

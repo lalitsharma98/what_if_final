@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\sharma.15282\OneDrive - Teleperformance\What-Ifs\project\Final_ToBeDeployed\whatifenv
+set VIRTUAL_ENV=C:\Users\sharma.15282\OneDrive - Teleperformance\What-Ifs\project\Final_ToBeDeployed\What-if_test\whatifenv
 
 if not defined PROMPT set PROMPT=$P$G
 
