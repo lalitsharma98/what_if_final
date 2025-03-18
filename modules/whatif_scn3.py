@@ -267,12 +267,12 @@ def scn3():
                         'Predicted FTEs Required (Avg)': [average_predicted_fte],
                         'FTE % Change': [fte_percentage_change]
                     })
-                    results_file = 'FTE_predictions.xlsx'
-                    results_df.to_excel(results_file, index=False, engine='xlsxwriter')
+                    # results_file = 'FTE_predictions.xlsx'
+                    # results_df.to_excel(results_file, index=False, engine='xlsxwriter')
 
-                    st.success(f"Results saved to {results_file}")
-                    with open(results_file, "rb") as f:
-                        st.download_button(label="Download Excel", data=f, file_name=results_file, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    # st.success(f"Results saved to {results_file}")
+                    # with open(results_file, "rb") as f:
+                    #     st.download_button(label="Download Excel", data=f, file_name=results_file, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         except Exception as e:
             st.error(f"Error processing data: {e}")
 
