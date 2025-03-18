@@ -257,7 +257,7 @@ def scn_5():
         st.write(f"Changed {variable_to_change} Value: {week_data_avg[variable_to_change]*(1 + percentage_change / 100):.2f}")
         st.write(f"Average Staffing for the week: {week_data_staffing['Staffing'].mean():.2f}")
         st.write(f"New Predicted Staffing: {new_predicted_staffing:.2f}")
-        st.write(f"Change in Staffing: {change_in_staffing_rate:.2f}")
+        st.write(f"Change in Staffing: {change_in_staffing_rate * 100:.2f}%")
 
 if __name__ == '__main__':
     scn_5()
