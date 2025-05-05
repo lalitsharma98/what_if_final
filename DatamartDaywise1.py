@@ -319,5 +319,3 @@ def daywise():
             final_data.to_excel(file_path, index=False)
 
             st.write(f'data saved with file name: {lang}_{type_data}_output.xlsx !')
-if __name__ == "__main__":
-    daywise()
