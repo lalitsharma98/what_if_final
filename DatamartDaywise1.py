@@ -315,7 +315,22 @@ def daywise():
             # Save the DataFrame to an Excel file
             planner_type_txt=' '.join(planner_type)
             type_data=extract_after_weekly_planner(planner_type_txt)        
-            file_path = f'{lang}_{type_data}_output.xlsx'
-            final_data.to_excel(file_path, index=False)
+            # file_path = f'{lang}_{type_data}_output.xlsx'
+            # final_data.to_excel(file_path, index=False)
 
-            st.write(f'data saved with file name: {lang}_{type_data}_output.xlsx !')
+            # st.write(f'data saved with file name: {lang}_{type_data}_output.xlsx !')
+            # Convert to Excel in-memory
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                final_data.to_excel(writer, index=False, sheet_name="DaywiseData")
+            output.seek(0)
+
+            # Provide download button
+            st.download_button(
+                label="📥 Download Excel Output",
+                data=output,
+                file_name=f"{lang}_{type_data}_output.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+if __name__ == "__main__":
+    main()
