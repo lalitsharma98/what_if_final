@@ -1,0 +1,323 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import glob
+import os
+from io import BytesIO
+import warnings
+from streamlit_folium import st_folium
+
+
+warnings.filterwarnings("ignore")
+
+def daywise():
+
+    # Function to get file lists
+    def get_file_lists(folder_path):
+        xlsm_files = glob.glob(os.path.join(folder_path, '*.xlsm'))
+        csv_files = glob.glob(os.path.join(folder_path, '*.csv'))
+        return xlsm_files, csv_files
+
+    # Function to process occupancy assumptions
+    def process_occupancy_assump(file, sheets):
+        occ_assumptions_dataframe = pd.DataFrame()
+        occ_columns = []
+
+        for sheet in sheets:
+            df = pd.read_excel(file, sheet_name=sheet, header=None)
+            df = df.iloc[3:, 3:].reset_index(drop=True)
+            df = df.T.reset_index(drop=True)
+            
+            df.columns = df.iloc[0].astype(str) + " " + df.iloc[1].astype(str) + " " + df.iloc[2].astype(str)
+            df.columns = df.columns.str.replace("nan", "").str.strip()
+            df = df[3:].reset_index(drop=True)
+            df["Week Of:"] = pd.to_datetime(df["Week Of:"], errors="coerce").dt.date
+
+            occ_columns = [col for col in df.columns if "OCC Assumptions" in col]
+            occ_df = df[["Week Of:"] + occ_columns]
+            occ_assumptions_dataframe = pd.concat([occ_assumptions_dataframe, occ_df], axis=0)
+
+        return occ_assumptions_dataframe, occ_columns
+
+    # Function to expand weekly occupancy to daily long format
+    def expand_weekly_occ_to_daily_long(df_weekly):
+        df_weekly['Week Of:'] = pd.to_datetime(df_weekly['Week Of:'])
+        df_daily = df_weekly.loc[df_weekly.index.repeat(7)].copy()
+        df_daily['Day Offset'] = df_daily.groupby('Week Of:').cumcount()
+        df_daily['startDate per day'] = df_daily['Week Of:'] + pd.to_timedelta(df_daily['Day Offset'], unit='D')
+        df_daily = df_daily.drop(columns=['Week Of:', 'Day Offset'])
+        df_long = df_daily.melt(id_vars='startDate per day', var_name='Level', value_name='OCC Assumption')
+        return df_long
+
+    # Function to extract level from a string
+    def extract_level_and_category(input_string):
+        # Find the position of the first opening parenthesis
+        start_pos = input_string.find('(')
+        
+        # Find the position of the closing parenthesis
+        end_pos = input_string.find(')', start_pos)
+        
+        # Extract the content within the parentheses
+        if start_pos != -1 and end_pos != -1:
+            l_value = input_string[start_pos + 1:end_pos]
+            
+            # Check if the extracted content contains the desired levels and categories
+            if any(level in l_value for level in ['L3', 'L4']):
+                level = l_value
+            else:
+                level = None
+            
+            if any(category in input_string for category in ['USD', 'Global']):
+                category = 'USD' if 'USD' in input_string else 'Global'
+            else:
+                category = None
+            
+            return level, category
+        else:
+            return None, None
+
+    # Function to extract characters after the last backslash
+    def extract_after_last_backslash(input_string):
+        last_backslash_pos = input_string.rfind('\\')
+        if last_backslash_pos != -1 and last_backslash_pos + 3 < len(input_string):
+            return input_string[last_backslash_pos + 1:last_backslash_pos + 4]
+        else:
+            return None
+
+    # Function to convert DataFrame for calls
+    def convert_df_calls(df):
+        df['startDate per day'] = pd.to_datetime(df['startDate per day'], errors='coerce')
+        raw_float_cols = ['ABNs', 'Calls', 'Q2', 'Loaded AHT', 'ABN %']
+        percent_cols = ['Met', 'Missed']
+        for col in raw_float_cols:
+            df[col] = df[col].astype(str).str.replace('%', '', regex=False).str.replace(',', '', regex=False)
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+        for col in percent_cols:
+            df[col] = df[col].astype(str).str.replace('%', '', regex=False).str.replace(',', '', regex=False)
+            df[col] = pd.to_numeric(df[col], errors='coerce') / 100.0
+        return df
+
+    # Function to convert DataFrame for FTE
+    def convert_df_fte(df, lang):
+        df['startDate per day'] = pd.to_datetime(df['startDate per day'], errors='coerce')
+        if lang != "SPA":
+            df['Level'] = df['Agent Type'].astype(str).str[:2]
+        else:
+            df['Level'] = df['Level'].astype(str).str[:2]
+        df.rename(columns={'Product': 'Req Media', 'Location': 'USD', 'Level': 'Level_ix'}, inplace=True)
+        df['Weekly FTEs'] = df['Weekly FTEs'].astype(str).str.replace(',', '', regex=False)
+        df['Weekly FTEs'] = pd.to_numeric(df['Weekly FTEs'], errors='coerce')
+        df['USD'] = df['USD'].replace('Non-USD', 'Global')
+        df['Req Media'] = df['Req Media'].replace('Video Dedicated', 'VIDEO')
+        return df
+
+    # Function to convert DataFrame for occupancy
+    def convert_df_occ(df):
+        df['startDate per day'] = pd.to_datetime(df['startDate per day'], errors='coerce')
+        df.rename(columns={'Req. Media': 'Req Media'}, inplace=True)
+        df['OCC'] = df['OCC'].astype(str).str.replace('%', '', regex=False).str.replace(',', '', regex=False)
+        df['OCC'] = pd.to_numeric(df['OCC'], errors='coerce')
+        return df
+
+    # Function to convert DataFrame for hybrid
+    def convert_df_hybrid(df):
+        percent_cols = ['L4 Hybrid Minutes %', 'L5 Hybrid Minutes %']
+        for col in percent_cols:
+            df[col] = df[col].astype(str).str.replace('%', '', regex=False).str.replace(',', '', regex=False)
+            df[col] = pd.to_numeric(df[col], errors='coerce') / 100.0
+        return df
+
+    # Function to process CSV files
+    def process_csv_files(csv_files):
+        df_calls = None
+        df_fte = None
+        df_hybrid = None
+        df_occ = None
+
+        for file in csv_files:
+            filename = os.path.basename(file).lower()
+
+            if 'calls' in filename:
+                df_calls = pd.read_csv(file)
+                df_calls = convert_df_calls(df_calls)
+            elif 'fte' in filename:
+                df_fte = pd.read_csv(file)
+                df_fte = convert_df_fte(df_fte, lang)
+            elif 'hybrid' in filename:
+                df_hybrid = pd.read_csv(file)
+                df_hybrid = convert_df_hybrid(df_hybrid)
+            elif 'occ' in filename:
+                df_occ = pd.read_csv(file)
+                df_occ = convert_df_occ(df_occ)
+            else:
+                print(f"Unknown file type: {file}")
+
+        return df_calls, df_fte, df_hybrid, df_occ
+
+    # Function to get hybrid percentages by language
+    def get_hybrid_percentages_by_language(df_hybrid, language):
+        language = language.strip().upper()
+        matching_languages = df_hybrid[df_hybrid['Language'].str.upper().str.contains(language)]
+        if matching_languages.empty:
+            raise ValueError(f"Language containing '{language}' not found in hybrid data.")
+        hybrid_row = matching_languages.iloc[0]
+        matched_language = hybrid_row['Language']
+        return matched_language, {
+            'Language': matched_language,
+            'L4 Hybrid Minutes %': float(hybrid_row['L4 Hybrid Minutes %']),
+            'L5 Hybrid Minutes %': float(hybrid_row['L5 Hybrid Minutes %'])
+        }
+
+    # Function to convert DataFrame to Excel
+    def to_excel(df):
+        output = BytesIO()
+        writer = pd.ExcelWriter(output, engine='xlsxwriter')
+        df.to_excel(writer, index=False, sheet_name='Sheet1')
+        writer.save()
+        processed_data = output.getvalue()
+        return processed_data
+
+
+        
+    def assign_hybrid_pct(level):
+        if level == 'L4 - MSI':
+            return lang_hybrid['L4 Hybrid Minutes %']
+        elif level == 'L5 - All Call':
+            return lang_hybrid['L5 Hybrid Minutes %']
+        else:
+            return 0.0
+
+    def extract_level2(level_str):
+        if 'L3' in level_str.upper():
+            return 'L3'
+        elif 'L4' in level_str.upper():
+            return 'L4'
+        elif 'L5' in level_str.upper():
+            return 'L5'
+        else:
+            return 'Other'   
+        
+    def extract_after_weekly_planner(text):
+        # Find the position of "Weekly Planner"
+        start_pos = text.find('Weekly Planner')
+        
+        # Extract the text after "Weekly Planner"
+        if start_pos != -1:
+            return text[start_pos + len('Weekly Planner'):].strip()
+        else:
+            return None
+    
+
+    # Streamlit app
+    st.title('Datamart Creation- Daywise Data')
+
+    folder_path = st.text_input('Enter folder path:', r'C:\Users\sharma.15899\OneDrive - Teleperformance\Documents\LLS_readout\Data_Structuring_WhatIf\Datamart Creation\Data_Datamart')
+    planner_type = st.multiselect("Select sheets to process", ["1. Weekly Planner OPI USD", "2. Weekly Planner OPI Global", 
+                                                            "3. Weekly Planner VRI", "1. Weekly Planner OPI", 
+                                                            "2. Weekly Planner VRI", "3. UKD"])
+                                                            
+    if st.button('Process Files'):
+        xlsm_files, csv_files = get_file_lists(folder_path)
+        if xlsm_files:
+            sheets = planner_type
+            occ_assumptions_dataframe, occ_columns = process_occupancy_assump(xlsm_files[0], sheets)
+            df_occ_assump = expand_weekly_occ_to_daily_long(occ_assumptions_dataframe)
+            # Apply the function to the dataframe and create new columns
+            df_occ_assump[['Level', 'USD']] = df_occ_assump['Level'].apply(lambda x: pd.Series(extract_level_and_category(x)))
+            
+            
+            # Convert list to string
+            xlsm_files_str = ', '.join(xlsm_files)
+
+            lang = extract_after_last_backslash(xlsm_files_str)
+            df_calls, df_fte, df_hybrid, df_occ = process_csv_files(csv_files)
+            df_fte['Level'] = df_fte['Level_ix'].apply(extract_level2)
+            matched_language, lang_hybrid = get_hybrid_percentages_by_language(df_hybrid, lang)
+            # Step 1: Filter FTE data for the processing language only
+            df_fte_lang = df_fte[df_fte['Language'] == matched_language].copy()
+            
+            
+            # Replace NaN values with zero
+            df_fte_lang = df_fte_lang.fillna(0)
+            
+            # Ensure clean 'Product' column
+            df_fte_pivoted = df_fte_lang.pivot_table(
+                index=['startDate per day', 'USD','Language','Level_ix'],
+                columns='Req Media',
+                values='Weekly FTEs',
+                aggfunc='sum'
+            ).reset_index()
+            
+            df_fte_grouped = df_fte_pivoted.copy()
+            
+            df_fte_grouped['Hybrid %'] = df_fte_grouped['Level_ix'].apply(assign_hybrid_pct)
+            df_fte_grouped.rename(columns={'Level_ix': 'Level'}, inplace=True)
+
+            # Calculate Hybrid FTEs from 'Hybrid' column * Hybrid %
+            # Use numpy's where function to handle the conditional logic
+            df_fte_grouped['Hybrid FTEs'] = np.where(df_fte_grouped['Hybrid %'] != 0,
+                                            df_fte_grouped['Hybrid'] * df_fte_grouped['Hybrid %'],
+                                            0)
+
+            # Add hybrid to OPI and Video Dedicated
+            df_fte_grouped['Total OPI FTEs'] = df_fte_grouped['OPI'] + df_fte_grouped['Hybrid FTEs']
+            df_fte_grouped['Total VRI FTEs'] = df_fte_grouped['VIDEO'] + df_fte_grouped['Hybrid FTEs']
+
+            # Replace NaN values with zero
+            df_fte_grouped = df_fte_grouped.fillna(0)
+
+
+            df_fte_grouped=df_fte_grouped[df_fte_grouped['Total OPI FTEs'] > df_fte_grouped['Total OPI FTEs'].quantile(0.20)]
+
+
+            # Select only the necessary columns from df_fte_grouped for merging
+            df_opi_vri_fte = df_fte_grouped[['startDate per day', 'Language','USD','Level', 'Total OPI FTEs', 'Total VRI FTEs']]
+
+            # Ensure date format consistency in df_calls
+            df_calls['startDate per day'] = pd.to_datetime(df_calls['startDate per day'], errors='coerce')
+
+            # Merge only OPI/VRI totals into df_calls using common keys
+            df_calls_with_fte = pd.merge(
+                df_calls,
+                df_opi_vri_fte,
+                on=['startDate per day','USD', 'Language', 'Level'],
+                how='inner'
+            )
+                    
+
+            final_fte_occ_assump = df_calls_with_fte.merge(df_occ_assump, on =['startDate per day', 'Level', 'USD'], how='inner')
+
+
+            final_fte_occ_assump_occ_rate = final_fte_occ_assump.merge(
+                df_occ,
+                on=['startDate per day','Language','USD', 'Level', 'Req Media'],
+                how='left'
+            )
+
+
+            final_data = final_fte_occ_assump_occ_rate.copy()
+
+            final_data['OCC Assumption'].fillna(final_data['OCC Assumption'].mean(), inplace=True)
+            final_data['OCC'].fillna(final_data['OCC'].mean(), inplace=True)
+            final_data["Requirement"] = final_data["Calls"] * final_data['Loaded AHT'] / ((2250 / 7) * final_data["OCC Assumption"])
+            final_data.rename(columns={'Total OPI FTEs':'Staffing'}, inplace=True)
+            final_data['Demand'] = final_data['Calls'] * final_data['Loaded AHT']
+            final_data['Staffing Diff'] = final_data['Staffing'] - final_data['Staffing'].shift(1)
+            final_data.rename(columns={"OCC":"Occupancy Rate"}, inplace=True)
+            final_data.rename(columns={"OCC Assumption":"Occ Assumption"}, inplace=True)
+
+            final_data = final_data[['startDate per day', 'Language', 'USD', 'Req Media', 'Level', 'ABNs',
+                'Calls', 'Q2', 'Loaded AHT', 'ABN %', 'Met', 'Missed','Demand','Occ Assumption',
+                                    'Requirement','Staffing','Occupancy Rate','Staffing Diff']]
+
+            st.write(final_data)
+                    
+            # Save the DataFrame to an Excel file
+            planner_type_txt=' '.join(planner_type)
+            type_data=extract_after_weekly_planner(planner_type_txt)        
+            file_path = f'{lang}_{type_data}_output.xlsx'
+            final_data.to_excel(file_path, index=False)
+
+            st.write(f'data saved with file name: {lang}_{type_data}_output.xlsx !')
+if __name__ == "__main__":
+    daywise()
