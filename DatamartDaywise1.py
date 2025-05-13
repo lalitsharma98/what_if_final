@@ -155,11 +155,16 @@ def get_hybrid_percentages_by_language(df_hybrid, language):
 # Function to convert DataFrame to Excel
 def to_excel(df):
     output = BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
-    df.to_excel(writer, index=False, sheet_name='Sheet1')
-    # writer.save()
-    processed_data = output.getvalue()
-    return processed_data
+
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Sheet1')
+    output.seek(0)
+    return output.read()
+    # writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    # df.to_excel(writer, index=False, sheet_name='Sheet1')
+    # # writer.save()
+    # processed_data = output.getvalue()
+    # return processed_data
 
 def assign_hybrid_pct(level):
     if level == 'L4 - MSI':
@@ -200,7 +205,7 @@ def run_daywise_tool():
     if st.button("Clear All Files"):
         for key in ["fte_file", "calls_file", "occ_file", "hybrid_file", "wp_file"]:
             st.session_state[key] = None
-        st.experimental_rerun()
+        st.rerun()
 
     planner_type = st.multiselect("Select sheets to process", [
         "1. Weekly Planner OPI USD", "2. Weekly Planner OPI Global",
@@ -305,7 +310,4 @@ def run_daywise_tool():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
             st.success("File processed successfully!")
-        else:
-            st.warning("❗ Please upload the Weekly Planner XLSM file.")
-    else:
-        st.warning("❗ Please upload the required files.")
+        
