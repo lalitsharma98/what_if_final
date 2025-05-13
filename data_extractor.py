@@ -77,14 +77,22 @@ def run_data_extractor():
                     # Filter columns based on user selection
                     selected_columns = [col for col in final_df.columns if selected_option in col]
                     final_df = final_df[["Week Of:"] + selected_columns]
+
                 else:
-                    selected_option_part = selected_option.split(' ', 1)
-                    selected_columns = [col for col in final_df.columns if selected_option_part[0] in col 
-                                        and selected_option_part[1] in col]                    
-                    final_df = final_df[["Week Of:"] + selected_columns]
+                    if any('vri' in item.lower() for item in planner_type):
+                        selected_option_part = selected_option.split(' ', 1)
+                        selected_columns = [col for col in final_df.columns if selected_option_part[1] in col]                    
+                        final_df = final_df[["Week Of:"] + selected_columns]
+                    else:
+                        selected_option_part = selected_option.split(' ', 1)
+                        selected_columns = [col for col in final_df.columns if selected_option_part[0] in col 
+                                            and selected_option_part[1] in col]                    
+                        final_df = final_df[["Week Of:"] + selected_columns]
                                 
                 # Convert DataFrame to Excel
-                processed_data = convert_df_to_excel(final_df)            
+                processed_data = convert_df_to_excel(final_df)   
+
+                planner_type_selected = [item.split("Weekly Planner", 1)[1].strip() for item in planner_type if "Weekly Planner" in item]         
             
             # Display the final table
             st.write(final_df)
@@ -94,6 +102,7 @@ def run_data_extractor():
             
             # Provide download link
             st.download_button(label="Download data as Excel file", data=processed_data, 
-                               file_name="processed_data.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")            
-if __name__ == '__main__':
-    main()              
+                               file_name="processed_data_" + file_name.lower()[:3] + "_" + "_".join(planner_type_selected) + ".xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")            
+# if __name__ == '__main__':
+#     main()              
