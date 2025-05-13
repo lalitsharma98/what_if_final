@@ -88,10 +88,11 @@ def convert_df_calls(df):
 # Function to convert DataFrame for FTE
 def convert_df_fte(df, lang):
     df['startDate per day'] = pd.to_datetime(df['startDate per day'], errors='coerce')
-    if lang != "SPA":
-        df['Level'] = df['Agent Type'].astype(str).str[:2]
-    else:
-        df['Level'] = df['Level'].astype(str).str[:2]
+    df['Level'] = df['Agent Type'].astype(str).str[:2]
+    # if lang != "SPA":
+    #     df['Level'] = df['Agent Type'].astype(str).str[:2]
+    # else:
+    #     df['Level'] = df['Level'].astype(str).str[:2]
     df.rename(columns={'Product': 'Req Media', 'Location': 'USD', 'Level': 'Level_ix'}, inplace=True)
     df['Weekly FTEs'] = df['Weekly FTEs'].astype(str).str.replace(',', '', regex=False)
     df['Weekly FTEs'] = pd.to_numeric(df['Weekly FTEs'], errors='coerce')
@@ -230,6 +231,7 @@ def run_daywise_tool():
             matched_language, lang_hybrid = get_hybrid_percentages_by_language(df_hybrid, lang)
 
             df_fte_lang = df_fte[df_fte['Language'] == matched_language].copy().fillna(0)
+            df_fte_lang['startDate per day'] = pd.to_datetime(df_fte_lang['startDate per day'])
 
             df_fte_pivoted = df_fte_lang.pivot_table(
                 index=['startDate per day', 'USD', 'Language', 'Level_ix'],
@@ -302,3 +304,8 @@ def run_daywise_tool():
                 file_name=f'{lang}_{type_data}_output.xlsx',
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+            st.success("File processed successfully!")
+        else:
+            st.warning("❗ Please upload the Weekly Planner XLSM file.")
+    else:
+        st.warning("❗ Please upload the required files.")
