@@ -174,7 +174,7 @@ def run_fte_analysis():
 
         st.write(results)
         
-        st.write(df)
+        # st.write(df)
                
         min_value = int(df['Staffing'].min())
         max_value = int(df['Staffing'].max())
