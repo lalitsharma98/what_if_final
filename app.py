@@ -10,7 +10,7 @@ from DatamartDaywise1 import run_daywise_tool
 
 # Sidebar navigation
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["What-if analysis","Data Extractor", "FTE Req Analysis","Datamart-Daywise"])
+page = st.sidebar.radio("Go to", ["What-if analysis","Data Extractor", "Staffing Req Analysis","Datamart-Daywise"])
 
 # Main content based on selection
 if page == "What-if analysis":
@@ -21,8 +21,8 @@ elif page == "Data Extractor":
     st.title("Data Extractor")
     run_data_extractor()
 
-elif page == "FTE Req Analysis":
-    st.title("FTE Requirement Analysis")
+elif page == "Staffing Req Analysis":
+    st.title("Staffing Req Analysis")
     run_fte_analysis()
 
 elif page == "Datamart-Daywise":
