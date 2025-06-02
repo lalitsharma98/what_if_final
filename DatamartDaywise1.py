@@ -5,25 +5,16 @@ import os
 from io import BytesIO
 import warnings
 from streamlit_folium import st_folium
+from dateutil import parser
 
 warnings.filterwarnings("ignore")
-
-def to_excel(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Sheet1')
-    return output.getvalue()
 
 # Function to process occupancy assumptions
 def process_occupancy_assump(file, sheets):
     occ_assumptions_dataframe = pd.DataFrame()
-    all_sheet_names = pd.ExcelFile(file).sheet_names
     occ_columns = []
 
     for sheet in sheets:
-        if sheet not in all_sheet_names:
-            st.warning(f"❗ Sheet '{sheet}' not found in uploaded file. Please select a valid sheet.")
-            continue  # Skip this sheet and continue to the next one
         df = pd.read_excel(file, sheet_name=sheet, header=None)
         df = df.iloc[3:, 3:].reset_index(drop=True)
         df = df.T.reset_index(drop=True)
@@ -87,12 +78,10 @@ def convert_df_calls(df):
 
 # Function to convert DataFrame for FTE
 def convert_df_fte(df, lang):
-    df['startDate per day'] = pd.to_datetime(df['startDate per day'], errors='coerce')
+    
+    df['startDate per day'] = pd.to_datetime(df['startDate per day'], format='%d-%m-%Y').dt.strftime('%Y-%m-%d')
+#     df['startDate per day'] = pd.to_datetime(df['startDate per day'], errors='coerce')
     df['Level'] = df['Agent Type'].astype(str).str[:2]
-    # if lang != "SPA":
-    #     df['Level'] = df['Agent Type'].astype(str).str[:2]
-    # else:
-    #     df['Level'] = df['Level'].astype(str).str[:2]
     df.rename(columns={'Product': 'Req Media', 'Location': 'USD', 'Level': 'Level_ix'}, inplace=True)
     df['Weekly FTEs'] = df['Weekly FTEs'].astype(str).str.replace(',', '', regex=False)
     df['Weekly FTEs'] = pd.to_numeric(df['Weekly FTEs'], errors='coerce')
@@ -141,7 +130,8 @@ def process_csv_files(uploaded_fte_file, uploaded_calls_file, uploaded_occ_file,
 # Function to get hybrid percentages by language
 def get_hybrid_percentages_by_language(df_hybrid, language):
     language = language.strip().upper()
-    matching_languages = df_hybrid[df_hybrid['Language'].str.upper().str.contains(language)]
+    matching_languages = df_hybrid[df_hybrid['Language'].str.upper().str.contains(language, na=False)]
+
     if matching_languages.empty:
         raise ValueError(f"Language containing '{language}' not found in hybrid data.")
     hybrid_row = matching_languages.iloc[0]
@@ -191,6 +181,7 @@ def extract_after_weekly_planner(text):
     else:
         return None
 
+    # Streamlit app
 
 def run_daywise_tool():
     global lang_hybrid
@@ -202,106 +193,130 @@ def run_daywise_tool():
     uploaded_hybrid_file = st.file_uploader("Upload Hybrid CSV file", type="csv")
     uploaded_wp_file = st.file_uploader("Upload Weekly Planner XLSM file", type="xlsm")
 
-    if st.button("Clear All Files"):
-        for key in ["fte_file", "calls_file", "occ_file", "hybrid_file", "wp_file"]:
-            st.session_state[key] = None
-        st.rerun()
-
-    planner_type = st.multiselect("Select sheets to process", [
-        "1. Weekly Planner OPI USD", "2. Weekly Planner OPI Global",
-        "3. Weekly Planner VRI", "1. Weekly Planner OPI",
-        "2. Weekly Planner VRI", "3. UKD"
-    ])
+    planner_type = st.multiselect("Select sheets to process", ["1. Weekly Planner OPI USD", "2. Weekly Planner OPI Global", 
+                                                            "3. Weekly Planner VRI", "1. Weekly Planner OPI", 
+                                                            "2. Weekly Planner VRI", "3. UKD"])
 
     if st.button('Process Files'):
         if uploaded_wp_file:
             sheets = planner_type
             occ_assumptions_dataframe, occ_columns = process_occupancy_assump(uploaded_wp_file, sheets)
-
+                
             if any("VRI" in item for item in sheets):
+                
+                # Create new columns with Global and USD suffixes
                 occ_assumptions_dataframe['Global OCC Assumptions (L4):'] = occ_assumptions_dataframe['OCC Assumptions (L4):']
                 occ_assumptions_dataframe['USD OCC Assumptions (L4):'] = occ_assumptions_dataframe['OCC Assumptions (L4):']
                 occ_assumptions_dataframe['Global OCC Assumptions (L5):'] = occ_assumptions_dataframe['OCC Assumptions (L5):']
-                occ_assumptions_dataframe['USD OCC Assumptions (L5):'] = occ_assumptions_dataframe['OCC Assumptions (L5):']
+                occ_assumptions_dataframe['USD OCC Assumptions (L5):'] = occ_assumptions_dataframe['OCC Assumptions (L5):']   
                 occ_assumptions_dataframe.drop(columns=['OCC Assumptions (L4):', 'OCC Assumptions (L5):'], inplace=True)
-
+                
             df_occ_assump = expand_weekly_occ_to_daily_long(occ_assumptions_dataframe)
+
             df_occ_assump[['Level', 'USD']] = df_occ_assump['Level'].apply(lambda x: pd.Series(extract_level_and_category(x)))
+            
+            # Convert list to string       
             xlsm_files_str = uploaded_wp_file.name[:3]
+        
             lang = xlsm_files_str
 
-            df_calls, df_fte, df_hybrid, df_occ = process_csv_files(uploaded_fte_file, uploaded_calls_file,
+            df_calls, df_fte, df_hybrid, df_occ = process_csv_files(uploaded_fte_file, uploaded_calls_file, 
                                                                     uploaded_occ_file, uploaded_hybrid_file, lang)
             df_fte['Level'] = df_fte['Level_ix'].apply(extract_level2)
             matched_language, lang_hybrid = get_hybrid_percentages_by_language(df_hybrid, lang)
-
-            df_fte_lang = df_fte[df_fte['Language'] == matched_language].copy().fillna(0)
+            # Step 1: Filter FTE data for the processing language only
+            df_fte_lang = df_fte[df_fte['Language'] == matched_language].copy()
+            
+            
+            # Replace NaN values with zero
+            df_fte_lang = df_fte_lang.fillna(0)
+            
+            # Ensure clean 'Product' column
             df_fte_lang['startDate per day'] = pd.to_datetime(df_fte_lang['startDate per day'])
-
+            
             df_fte_pivoted = df_fte_lang.pivot_table(
-                index=['startDate per day', 'USD', 'Language', 'Level_ix'],
+                index=['startDate per day', 'USD','Language','Level_ix'],
                 columns='Req Media',
                 values='Weekly FTEs',
                 aggfunc='sum'
             ).reset_index()
-
+            
             df_fte_grouped = df_fte_pivoted.copy()
+            
             df_fte_grouped['Hybrid %'] = df_fte_grouped['Level_ix'].apply(assign_hybrid_pct)
             df_fte_grouped.rename(columns={'Level_ix': 'Level'}, inplace=True)
 
-            df_fte_grouped['Hybrid FTEs'] = np.where(
-                df_fte_grouped['Hybrid %'] != 0,
-                df_fte_grouped['Hybrid'] * df_fte_grouped['Hybrid %'],
-                0
-            )
+            # Calculate Hybrid FTEs from 'Hybrid' column * Hybrid %
+            # Use numpy's where function to handle the conditional logic
+            df_fte_grouped['Hybrid FTEs'] = np.where(df_fte_grouped['Hybrid %'] != 0,
+                                            df_fte_grouped['Hybrid'] * df_fte_grouped['Hybrid %'],
+                                            0)
 
+            # Add hybrid to OPI and Video Dedicated
             df_fte_grouped['Total OPI FTEs'] = df_fte_grouped['OPI'] + df_fte_grouped['Hybrid FTEs']
             df_fte_grouped['Total VRI FTEs'] = df_fte_grouped['VIDEO'] + df_fte_grouped['Hybrid FTEs']
+
+            # Replace NaN values with zero
             df_fte_grouped = df_fte_grouped.fillna(0)
-            df_fte_grouped = df_fte_grouped[df_fte_grouped['Total OPI FTEs'] > df_fte_grouped['Total OPI FTEs'].quantile(0.20)]
 
-            df_opi_vri_fte = df_fte_grouped[['startDate per day', 'Language', 'USD', 'Level', 'Total OPI FTEs', 'Total VRI FTEs']]
-            df_calls['startDate per day'] = pd.to_datetime(df_calls['startDate per day'], errors='coerce')
 
+            df_fte_grouped=df_fte_grouped[df_fte_grouped['Total OPI FTEs'] > df_fte_grouped['Total OPI FTEs'].quantile(0.20)]
+
+
+            # Select only the necessary columns from df_fte_grouped for merging
+            df_opi_vri_fte = df_fte_grouped[['startDate per day', 'Language','USD','Level', 'Total OPI FTEs', 'Total VRI FTEs']]
+
+            # Ensure date format consistency in df_calls
+            df_calls['startDate per day'] = pd.to_datetime(df_calls['startDate per day'], errors='coerce')       
+            
+
+            # Merge only OPI/VRI totals into df_calls using common keys
             df_calls_with_fte = pd.merge(
                 df_calls,
                 df_opi_vri_fte,
-                on=['startDate per day', 'USD', 'Language', 'Level'],
+                on=['startDate per day','USD', 'Language', 'Level'],
                 how='inner'
             )
 
-            final_fte_occ_assump = df_calls_with_fte.merge(df_occ_assump, on=['startDate per day', 'Level', 'USD'], how='inner')
+            final_fte_occ_assump = df_calls_with_fte.merge(df_occ_assump, on =['startDate per day', 'Level', 'USD'], how='inner')
+
+
             final_fte_occ_assump_occ_rate = final_fte_occ_assump.merge(
                 df_occ,
-                on=['startDate per day', 'Language', 'USD', 'Level', 'Req Media'],
+                on=['startDate per day','Language','USD', 'Level', 'Req Media'],
                 how='left'
             )
 
             final_data = final_fte_occ_assump_occ_rate.copy()
+
             final_data['OCC Assumption'].fillna(final_data['OCC Assumption'].mean(), inplace=True)
             final_data['OCC'].fillna(final_data['OCC'].mean(), inplace=True)
             final_data["Requirement"] = final_data["Calls"] * final_data['Loaded AHT'] / ((2250 / 7) * final_data["OCC Assumption"])
-            final_data.rename(columns={'Total OPI FTEs': 'Staffing'}, inplace=True)
+            final_data.rename(columns={'Total OPI FTEs':'Staffing'}, inplace=True)
             final_data['Demand'] = final_data['Calls'] * final_data['Loaded AHT']
             final_data['Staffing Diff'] = final_data['Staffing'] - final_data['Staffing'].shift(1)
-            final_data.rename(columns={"OCC": "Occupancy Rate", "OCC Assumption": "Occ Assumption"}, inplace=True)
+            final_data.rename(columns={"OCC":"Occupancy Rate"}, inplace=True)
+            final_data.rename(columns={"OCC Assumption":"Occ Assumption"}, inplace=True)
 
             final_data = final_data[['startDate per day', 'Language', 'USD', 'Req Media', 'Level', 'ABNs',
-                                     'Calls', 'Q2', 'Loaded AHT', 'ABN %', 'Met', 'Missed', 'Demand',
-                                     'Occ Assumption', 'Requirement', 'Staffing', 'Occupancy Rate',
-                                     'Staffing Diff']]
-
-            planner_type_txt = ' '.join(planner_type)
-            type_data = extract_after_weekly_planner(planner_type_txt)
-
+                'Calls', 'Q2', 'Loaded AHT', 'ABN %', 'Met', 'Missed','Demand','Occ Assumption',
+                                    'Requirement','Staffing','Occupancy Rate','Staffing Diff']]
+                    
+            # Save the DataFrame to an Excel file
+            planner_type_txt=' '.join(planner_type)
+            type_data=extract_after_weekly_planner(planner_type_txt)
+            
+            st.write(type_data)
+            
+            
             if 'OPI' in type_data.upper():
+
                 final_data_opi_or_vri = final_data[final_data['Req Media'] == 'OPI']
             else:
-                final_data_opi_or_vri = final_data[final_data['Req Media'] == 'VIDEO']
-
-            st.write(final_data_opi_or_vri)
-
-            # ✅ Provide download directly
+                final_data_opi_or_vri = final_data[final_data['Req Media'] == 'VIDEO']  
+                
+            st.write(final_data_opi_or_vri)                            
+             # ✅ Provide download directly
             excel_bytes = to_excel(final_data_opi_or_vri)
             st.download_button(
                 label="Download Processed Excel File",
@@ -309,5 +324,4 @@ def run_daywise_tool():
                 file_name=f'{lang}_{type_data}_output.xlsx',
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-            st.success("File processed successfully!")
-        
+            st.success("File processed successfully!")  
