@@ -236,8 +236,6 @@ def scn3():
 
                 return predictions, scenario_type, average_demand, average_actual_fte, average_predicted_fte, fte_percentage_change
 
-
-
             demand_increase_percent = st.number_input("Enter the percentage increase in demand (%):", min_value=0, step=1)
             scenario_type = st.selectbox("Select the scenario type:", ["Weekly", "Monthly", "Yearly"]).strip().lower()
             date_str = st.text_input("Enter the date to search (YYYY-MM-DD):")
@@ -250,9 +248,11 @@ def scn3():
                     new_demand = average_demand * (1 + demand_increase_percent / 100)
 
                     st.write(f"Scenario Type: {scenario_type}")
-                    st.write(f"Average Demand: {format_number_to_million(average_demand)}M")
+    #                 st.write(f"Average Demand: {format_number_to_million(average_demand)}M")
+                    st.write(f"Average Demand: {average_demand}")
                     st.write(f"Demand Increase %: {demand_increase_percent:.2f}")
-                    st.write(f"New Demand: {format_number_to_million(new_demand)}M")
+                    st.write(f"Average Demand: {new_demand}")
+    #                 st.write(f"New Demand: {format_number_to_million(new_demand)}M")
                     st.write(f"Actual FTEs Required (Avg): {average_actual_fte:.2f}")
                     st.write(f"Predicted FTEs Required (Avg): {average_predicted_fte:.2f}")
                     st.write(f"FTE % Change: {fte_percentage_change:.2f}")
