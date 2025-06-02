@@ -53,7 +53,12 @@ def calculate_average_occupancy_rate(df, staffing_change, occupancy_assumption):
     return average_occupancy_rate
 
 def group_data(df, min_value, max_value):
-    bins = np.arange(min_value, max_value + 10, 10)
+    
+    # Calculate the range and determine the bin width
+    range_value = max_value - min_value
+    bin_width = max(10, range_value // 10)
+    # Create bins with a minimum difference of 10 and a maximum of 10 bins
+    bins = np.arange(min_value, max_value + bin_width, bin_width)
 
     # Check if "Q4" column is present
     if 'Q4' in df.columns:
@@ -73,6 +78,12 @@ def group_data(df, min_value, max_value):
         q_column : 'mean'
     }).reset_index()
     grouped_df.columns = ['Requirement_Range', 'Occupancy Rate', 'Frequency', 'Occupancy Assumptions', 'Q2_Q4 Time']
+    
+    # Round all numeric columns to 2 decimal places
+    grouped_df['Occupancy Rate'] = grouped_df['Occupancy Rate'].round(2)
+    grouped_df['Occupancy Assumptions'] = grouped_df['Occupancy Assumptions'].round(2)
+    grouped_df['Q2_Q4 Time'] = grouped_df['Q2_Q4 Time'].round(2)
+
     return grouped_df
 
 def preprocess_data(df):
@@ -165,16 +176,15 @@ def run_fte_analysis():
         # Display results in specified format
         st.write("Whatif Results------------>")
         results = pd.DataFrame({
-            'Staffing': [df['Staffing'].mean() + staffing_change_1,
-                                              df['Staffing'].mean() + staffing_change_2],
+            'Staffing': [int(df['Staffing'].mean() + staffing_change_1),
+                                              int(df['Staffing'].mean() + staffing_change_2)],
             'OCC Assumptions': [occupancy_assumption_1 * 100, occupancy_assumption_2 * 100],
-            'Q2_Q4 Time': [average_q2_q4_time_1, average_q2_q4_time_2],
-            'Occupancy Rate': [average_occupancy_rate_1 * 100, average_occupancy_rate_2 * 100]
+            'Q2_Q4 Time': [round(average_q2_q4_time_1,2), round(average_q2_q4_time_2,2)],
+            'Occupancy Rate': [round(average_occupancy_rate_1 * 100,2), round(average_occupancy_rate_2 * 100,2)]
         }, index=[f'Change by {staffing_change_1} Staffing', f'Change by {staffing_change_2} Staffing'])
 
-        st.write(results)
+        # st.write(results)
         
-        # st.write(df)
                
         min_value = int(df['Staffing'].min())
         max_value = int(df['Staffing'].max())
