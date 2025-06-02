@@ -31,7 +31,7 @@ def train_regression_model(df):
 
 def analyze_scenarios(df, model, q2, abn, occ):
     test_data = pd.DataFrame({
-        "Q2": q2,
+        "Q2": [q2/100],
         "ABN %": [abn/100],
         "Occ Assumption": [occ/100],
         "Staffing": [df["Staffing"].median()],
@@ -47,10 +47,10 @@ def fte_impact_of_demand_increase(df, model, q2, abn, occ):
     for change in demand_changes:
         demand_scenario = df["Demand"].median() * (1 + change / 100)
         fte_pred = model.predict(pd.DataFrame({
-            "Q2": q2, "ABN %": [abn/100], "Occ Assumption": [occ/100],
+            "Q2": [q2/100], "ABN %": [abn/100], "Occ Assumption": [occ/100],
             "Staffing": [df["Staffing"].median()], "Demand": [demand_scenario], "Occupancy Rate": [df["Occupancy Rate"].median()]
         }))[0]
-        predictions.append((change, int(fte_pred)))
+        predictions.append((change, demand_scenario, int(fte_pred)))
     return predictions
 
 def impact_of_occ_assumption_change(df, model, q2, abn):
@@ -59,10 +59,10 @@ def impact_of_occ_assumption_change(df, model, q2, abn):
     for change in occ_changes:
         occ_scenario = df["Occ Assumption"].median() * (1 + change / 100)
         fte_pred = model.predict(pd.DataFrame({
-            "Q2": q2, "ABN %": [abn/100], "Occ Assumption": occ_scenario,
+            "Q2": [q2/100], "ABN %": [abn/100], "Occ Assumption": [occ_scenario/100],
             "Staffing": [df["Staffing"].median()], "Demand": [df["Demand"].median()], "Occupancy Rate": [df["Occupancy Rate"].median()]
         }))[0]
-        predictions.append((change, int(fte_pred)))
+        predictions.append((change, occ_scenario, int(fte_pred)))
     return predictions
 
 st.title("What-If Analysis for FTE Requirements")
@@ -99,13 +99,13 @@ def scn2():
     
         st.header("FTE Impact of Demand Increase")
         demand_impact = fte_impact_of_demand_increase(df, model, q2, abn, occ)
-        for change, fte_pred in demand_impact:
-            st.write(f"Demand Increase {change}%: Predicted FTE = {fte_pred}")
+        for change, demand_scenario, fte_pred in demand_impact:
+            st.write(f"Demand Increase = {change}% New Demand = {demand_scenario}: Predicted FTE = {fte_pred}")
 
         st.header("Impact of OCC Assumption Change")
         occ_impact = impact_of_occ_assumption_change(df, model, q2, abn)
-        for change, fte_pred in occ_impact:
-            st.write(f"OCC Assumption Change {change}%: Predicted FTE = {fte_pred}")
+        for change, occ_scenario, fte_pred in occ_impact:
+            st.write(f"OCC Assumption Change {change}% New Occupancy Assumption = {occ_scenario}: Predicted FTE = {fte_pred}")
 
 if __name__ == '__main__':
     scn2()
