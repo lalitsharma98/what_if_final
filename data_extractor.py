@@ -168,12 +168,19 @@ def run_data_extractor():
             # Extract column names for dropdown
             file_name = uploaded_file.name
             if file_name.lower().startswith('csa'):
-                st.write("kkkk")
+                
                 #calculate AHT at combined combined level
                 final_df["Combined Combined AHT (ACTUAL)"] = (
                     (final_df["Combined OLY AHT (ACTUAL)"] * final_df["Combined OLY Volume (ACTUAL)"]) +
                     (final_df["Combined BOA AHT (ACTUAL)"] * final_df["Combined BOA Volume (ACTUAL)"])
                 ) / (final_df["Combined OLY Volume (ACTUAL)"] + final_df["Combined BOA Volume (ACTUAL)"])
+
+                #calculate Occ Assumption at combined level
+                final_df["Combined Combined OCC Assumptions:"] = (
+                    (final_df["OCC Assumptions (OLY):"] * final_df["Combined OLY Volume (ACTUAL)"]) +
+                    (final_df["OCC Assumptions (BOA):"] * final_df["Combined BOA Volume (ACTUAL)"])
+                ) / (final_df["Combined OLY Volume (ACTUAL)"] + final_df["Combined BOA Volume (ACTUAL)"])
+                
                 volume_columns = [col for col in final_df.columns if "Volume (ACTUAL)" in col] 
                 
                 dropdown_options = []
