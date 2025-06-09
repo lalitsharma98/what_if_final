@@ -128,8 +128,8 @@ def run_fte_analysis():
         volume_columns = [col for col in df.columns if "Occupancy Rate" in col]
         for col in volume_columns:
             text_between = col.split("Occupancy Rate")[0].strip()
-         
-        if text_between.upper().startswith(('OLY','BOA')):
+               
+        if text_between.upper().startswith(('OLY','BOA')):            
             selected_option_part = text_between.split(' ', 0)
             selected_columns = [col for col in df.columns if selected_option_part[0] in col]
             column_mapping = {
@@ -144,19 +144,37 @@ def run_fte_analysis():
                 f'OCC Assumptions ({selected_option_part[0]})': 'Occupancy Assumptions'
             }
         else:
-            selected_option_part = text_between.split(' ', 1)
-            selected_columns = [col for col in df.columns if selected_option_part[1] in col]
-            column_mapping = {
-                'Week Of:': 'Date',
-                f'{text_between} Volume (ACTUAL)': 'Calls',
-                f'{text_between} STAFFING DIFFERENTIAL': 'Staffing Diff',
-                f'{text_between} AHT (ACTUAL)': 'AHT',
-                f'{text_between} Occupancy Rate': 'Occupancy Rate',
-                f'{text_between} Staffing Requirement (ACTUAL)': 'FTE Requirement',
-                f'{text_between} Staffing (ACTUAL/FORECASTED)': 'Staffing',
-                f'{text_between} Q2 Time': 'Q2',
-                f'{selected_option_part[0]} OCC Assumptions ({selected_option_part[1]}):': 'Occupancy Assumptions'
-            }          
+            file_name = uploaded_file.name    
+            if 'CSA' in file_name.upper():
+                selected_option_part = text_between.split(' ', 1)
+                selected_columns = [col for col in df.columns if selected_option_part[0] in col]
+                
+                column_mapping = {
+                    'Week Of:': 'Date',
+                    f'Combined {selected_option_part[0]} Volume (ACTUAL)': 'Calls',
+                    f'{text_between} STAFFING DIFFERENTIAL': 'Staffing Diff',
+                    f'Combined {selected_option_part[0]} AHT (ACTUAL)': 'AHT',
+                    f'{text_between} Occupancy Rate': 'Occupancy Rate',
+                    f'{text_between} Staffing Requirement (ACTUAL)': 'FTE Requirement',
+                    f'{text_between} Staffing (ACTUAL/FORECASTED)': 'Staffing',
+                    f'{text_between} Q4 Time': 'Q4',
+                    f'{text_between} OCC Assumptions ({selected_option_part[1]}):': 'Occupancy Assumptions'
+                }
+            else:
+                
+                selected_option_part = text_between.split(' ', 1)
+                selected_columns = [col for col in df.columns if selected_option_part[1] in col]
+                column_mapping = {
+                    'Week Of:': 'Date',
+                    f'{text_between} Volume (ACTUAL)': 'Calls',
+                    f'{text_between} STAFFING DIFFERENTIAL': 'Staffing Diff',
+                    f'{text_between} AHT (ACTUAL)': 'AHT',
+                    f'{text_between} Occupancy Rate': 'Occupancy Rate',
+                    f'{text_between} Staffing Requirement (ACTUAL)': 'FTE Requirement',
+                    f'{text_between} Staffing (ACTUAL/FORECASTED)': 'Staffing',
+                    f'{text_between} Q2 Time': 'Q2',
+                    f'{selected_option_part[0]} OCC Assumptions ({selected_option_part[1]}):': 'Occupancy Assumptions'
+                }          
         
         # Renaming the columns
         df.rename(columns=column_mapping, inplace=True)
@@ -193,7 +211,6 @@ def run_fte_analysis():
         # Calculate average Q4 time and occupancy rate with Staffing reduced by 80 and occupancy assumption of 70%
         average_q2_q4_time_2 = calculate_average_q2_q4_time(df, staffing_change_2, demand_change_2, occupancy_assumption_2)
         average_occupancy_rate_2 = calculate_average_occupancy_rate(df, staffing_change_2, demand_change_2, occupancy_assumption_2)
-        
 
         # Display results in specified format
         st.write("Whatif Results------------>")
@@ -206,6 +223,7 @@ def run_fte_analysis():
             'Q2_Q4 Time': [round(average_q2_q4_time_1,2), round(average_q2_q4_time_2,2)],
             'Occupancy Rate': [round(average_occupancy_rate_1 * 100,2), round(average_occupancy_rate_2 * 100,2)]
         }, index=[f'Change by {staffing_change_1} Staffing', f'Change by {staffing_change_2} Staffing'])
+        
 
         st.write(results)
         
@@ -216,5 +234,3 @@ def run_fte_analysis():
         st.write("Data distribution based on Staffing buckets-------->")
         st.write(grouped_results)
 
-# if __name__ == '__main__':
-#     main()
