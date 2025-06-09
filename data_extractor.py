@@ -180,7 +180,18 @@ def run_data_extractor():
                     (final_df["OCC Assumptions (OLY):"] * final_df["Combined OLY Volume (ACTUAL)"]) +
                     (final_df["OCC Assumptions (BOA):"] * final_df["Combined BOA Volume (ACTUAL)"])
                 ) / (final_df["Combined OLY Volume (ACTUAL)"] + final_df["Combined BOA Volume (ACTUAL)"])
-                
+
+                #calculate Occupancy Rate at combined level
+                final_df["Combined Combined Occupancy Rate"] = (
+                    (final_df["OLY OLY Occupancy Rate"] * final_df["Combined OLY Volume (ACTUAL)"]) +
+                    (final_df["BOA BOA Occupancy Rate"] * final_df["Combined BOA Volume (ACTUAL)"])
+                ) / (final_df["Combined OLY Volume (ACTUAL)"] + final_df["Combined BOA Volume (ACTUAL)"])
+                 #calculate Q4 Time at combined level
+                final_df["Combined Combined Q4 Time"] = (
+                    (final_df["OLY OLY Q4 Time"] * final_df["Combined OLY Volume (ACTUAL)"]) +
+                    (final_df["BOA BOA Q4 Time"] * final_df["Combined BOA Volume (ACTUAL)"])
+                ) / (final_df["Combined OLY Volume (ACTUAL)"] + final_df["Combined BOA Volume (ACTUAL)"])   
+
                 volume_columns = [col for col in final_df.columns if "Volume (ACTUAL)" in col] 
                 
                 dropdown_options = []
