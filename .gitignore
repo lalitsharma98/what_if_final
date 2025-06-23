@@ -4,3 +4,5 @@
 *.pkl
 *.h5
 whatifinalenv
+__pycache__
+*.pyc
