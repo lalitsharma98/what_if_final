@@ -3,18 +3,22 @@ import time
 from datetime import datetime
 from streamlit_autorefresh import st_autorefresh
 
+
 from data_extractor import run_data_extractor
 from fte_analysis import run_fte_analysis
 from default import main
-from DatamartDaywise1 import run_daywise_tool
+from DatamartDaywise import run_daywise_tool
 
 # Firebase Admin SDK
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# print(st.secrets)
+
 # --- Firebase setup using secrets ---
 if not firebase_admin._apps:
     firebase_config = st.secrets["firebase"]
+    
     cred = credentials.Certificate({
         "type": firebase_config["type"],
         "project_id": firebase_config["project_id"],
@@ -30,6 +34,7 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
+# print(db)
 
 # --- Session constants ---
 INACTIVITY_LIMIT = 180

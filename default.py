@@ -32,5 +32,5 @@ def main():
     else:
         st.error("Invalid Scenario Selected")
     
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
