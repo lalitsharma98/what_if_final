@@ -17,7 +17,7 @@ from firebase_admin import credentials, firestore
 
 # --- Firebase setup using secrets ---
 if not firebase_admin._apps:
-    firebase_config = st.secrets["firebase"]
+    firebase_config = st.Secrets["firebase"]
     
     cred = credentials.Certificate({
         "type": firebase_config["type"],
