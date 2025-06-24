@@ -3,6 +3,7 @@
 *.zip
 *.pkl
 *.h5
-whatifinalenv
+*whatifvenv
 __pycache__
 *.pyc
+.streamlit/secrets.toml

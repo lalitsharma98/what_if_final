@@ -33,7 +33,7 @@ if not firebase_admin._apps:
 # Initialize Firestore once and log it
 if "db_initialized" not in st.session_state:
     db = firestore.client()
-    print("✅ Firestore client initialized:", db)
+    # print("✅ Firestore client initialized:", db)
     st.session_state.db_initialized = True
 else:
     db = firestore.client()
